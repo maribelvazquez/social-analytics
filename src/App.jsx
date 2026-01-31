@@ -479,7 +479,8 @@ export default function App() {
         {/* DASHBOARD */}
         {view === 'dashboard' && (
           <div className="space-y-6">
-            <div className="flex justify-end">
+            <div className="flex justify-between items-center">
+              <h2 className="font-bold text-lg">Dashboard Semanal</h2>
               <Button onClick={() => setMetricasModal({ open: true, edit: null })}>
                 <Plus size={16} /> Agregar Métricas
               </Button>
@@ -492,54 +493,104 @@ export default function App() {
               </Card>
             ) : (
               <>
-                {EMPRESAS.map(empresa => (
-                  <Card key={empresa.key} style={{ borderTopColor: empresa.color, borderTopWidth: '4px' }}>
-                    <h2 className="font-bold text-lg mb-4" style={{ color: empresa.color }}>{empresa.label}</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {REDES.map(red => {
-                        const segKey = `${empresa.key}_${red.key}_seg`;
-                        const impKey = `${empresa.key}_${red.key}_imp`;
-                        const currentSeg = latest?.[segKey] || 0;
-                        const currentImp = latest?.[impKey] || 0;
-                        const prevSeg = prev?.[segKey];
-                        const prevImp = prev?.[impKey];
-                        
-                        return (
-                          <div key={red.key} className="border rounded-lg p-3">
-                            <div className="flex items-center gap-2 mb-2 font-medium" style={{ color: red.color }}>
-                              {getIcon(red)}
-                              <span className="text-sm">{red.label}</span>
-                            </div>
-                            <div className="space-y-1">
-                              <div className="flex justify-between items-center">
-                                <span className="text-xs text-gray-500">Seguidores</span>
-                                <div className="text-right">
-                                  <span className="font-semibold text-sm">{currentSeg.toLocaleString()}</span>
-                                  <Trend current={currentSeg} previous={prevSeg} />
-                                </div>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-xs text-gray-500">Impresiones</span>
-                                <div className="text-right">
-                                  <span className="font-semibold text-sm">{currentImp.toLocaleString()}</span>
-                                  <Trend current={currentImp} previous={prevImp} />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </Card>
-                ))}
+                {/* Gráfica de Seguidores */}
+                <Card>
+                  <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                    <Users size={20} className="text-[#8B5CF6]" />
+                    Seguidores por Red
+                  </h3>
+                  <div className="flex flex-wrap gap-4 mb-4">
+                    {EMPRESAS.map(e => (
+                      <div key={e.key} className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded" style={{ backgroundColor: e.color }}></div>
+                        <span className="text-sm font-medium">{e.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={REDES.map(red => ({
+                      red: red.label,
+                      EDUCA: latest?.[`educa_${red.key}_seg`] || 0,
+                      GMC360: latest?.[`gmc_${red.key}_seg`] || 0,
+                    }))}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="red" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => value.toLocaleString()} />
+                      <Legend />
+                      <Bar dataKey="EDUCA" fill="#F97316" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="GMC360" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Card>
 
-                {/* Resumen de leads */}
+                {/* Gráfica de Impresiones */}
+                <Card>
+                  <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                    <Eye size={20} className="text-[#F97316]" />
+                    Impresiones por Red
+                  </h3>
+                  <div className="flex flex-wrap gap-4 mb-4">
+                    {EMPRESAS.map(e => (
+                      <div key={e.key} className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded" style={{ backgroundColor: e.color }}></div>
+                        <span className="text-sm font-medium">{e.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={REDES.map(red => ({
+                      red: red.label,
+                      EDUCA: latest?.[`educa_${red.key}_imp`] || 0,
+                      GMC360: latest?.[`gmc_${red.key}_imp`] || 0,
+                    }))}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="red" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => value.toLocaleString()} />
+                      <Legend />
+                      <Bar dataKey="EDUCA" fill="#F97316" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="GMC360" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Card>
+
+                {/* Gráfica de Leads por Origen */}
                 <Card>
                   <div className="flex justify-between items-center mb-4">
-                    <h2 className="font-bold text-lg">Leads Recientes</h2>
-                    <span className="text-2xl font-bold text-[#8B5CF6]">{leadStats.total}</span>
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                      <Target size={20} className="text-[#10B981]" />
+                      Leads por Origen
+                    </h3>
+                    <div className="text-right">
+                      <p className="text-3xl font-bold text-[#8B5CF6]">{leadStats.total}</p>
+                      <p className="text-xs text-gray-500">Total leads</p>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  
+                  {leadStats.porOrigen.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={leadStats.porOrigen} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" />
+                        <YAxis dataKey="name" type="category" width={80} />
+                        <Tooltip />
+                        <Bar dataKey="value" name="Leads" radius={[0, 4, 4, 0]}>
+                          {leadStats.porOrigen.map((_, i) => (
+                            <Cell key={i} fill={COLORES_PIE[i % COLORES_PIE.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Target size={32} className="mx-auto mb-2 opacity-30" />
+                      <p>No hay leads registrados aún</p>
+                    </div>
+                  )}
+
+                  {/* Mini resumen por empresa */}
+                  <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t">
                     <div className="text-center p-3 bg-purple-50 rounded-lg">
                       <p className="text-2xl font-bold text-[#8B5CF6]">{leadStats.porEmpresa.gmc}</p>
                       <p className="text-xs text-gray-600">GMC360</p>
