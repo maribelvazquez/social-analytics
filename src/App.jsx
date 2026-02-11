@@ -817,9 +817,21 @@ export default function App() {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="font-bold text-lg">Gestión de Leads</h2>
-              <Button onClick={() => setLeadModal(true)}>
-                <Plus size={16} /> Nuevo Lead
-              </Button>
+              <div className="flex gap-2">
+                <label className="px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 bg-gray-100 text-gray-700 hover:bg-gray-200 cursor-pointer">
+                  <Upload size={16} /> Importar Excel
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={handleImportLeads}
+                    className="hidden"
+                    disabled={saving}
+                  />
+                </label>
+                <Button onClick={() => setLeadModal(true)}>
+                  <Plus size={16} /> Nuevo Lead
+                </Button>
+              </div>
             </div>
 
             {/* Estadísticas */}
@@ -934,21 +946,9 @@ export default function App() {
             <Card>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Listado de Leads</h3>
-                <div className="flex gap-2">
-                  <label className="px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 bg-gray-100 text-gray-700 hover:bg-gray-200 cursor-pointer">
-                    <Upload size={16} /> Importar
-                    <input
-                      type="file"
-                      accept=".xlsx,.xls,.csv"
-                      onChange={handleImportLeads}
-                      className="hidden"
-                      disabled={saving}
-                    />
-                  </label>
-                  <Button variant="secondary" onClick={() => exportLeads(leads)}>
-                    <Download size={16} /> Excel
-                  </Button>
-                </div>
+                <Button variant="secondary" onClick={() => exportLeads(leads)}>
+                  <Download size={16} /> Excel
+                </Button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
