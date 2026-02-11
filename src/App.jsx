@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, TrendingDown, Minus, Users, Eye, Plus, X, Download, Calendar, BarChart3, List, Loader2, Cloud, CloudOff, Target, Instagram, Facebook, Linkedin } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Users, Plus, X, Download, Upload, Calendar, BarChart3, List, Loader2, Cloud, CloudOff, Target, Instagram, Facebook, Linkedin } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, PieChart, Pie, Cell } from 'recharts';
 import * as XLSX from 'xlsx';
 import { getMetricas, addMetrica, updateMetrica, deleteMetrica, getLeads, addLead, deleteLead } from './firebase';
@@ -19,7 +19,6 @@ const REDES = [
 
 const METRICAS = [
   { key: 'seg', label: 'Seguidores', icon: Users },
-  { key: 'imp', label: 'Impresiones', icon: Eye },
 ];
 
 const ORIGENES = ['Instagram', 'Facebook', 'TikTok', 'LinkedIn', 'Web', 'Referido', 'Otro'];
@@ -337,18 +336,57 @@ export default function App() {
     const porEmpresa = { gmc: 0, educa: 0 };
     const porServicio = {};
     
+    // Para gráfica por semana
+    const porSemana = {};
+    // Para gráfica origen x semana
+    const origenSemana = {};
+
     leads.forEach(l => {
       porOrigen[l.origen] = (porOrigen[l.origen] || 0) + 1;
       porEmpresa[l.empresa] = (porEmpresa[l.empresa] || 0) + 1;
       const key = `${l.empresa}_${l.servicio}`;
       porServicio[key] = (porServicio[key] || 0) + 1;
+
+      // Agrupar por semana
+      if (l.fecha) {
+        const d = new Date(l.fecha + 'T12:00:00');
+        const startOfWeek = new Date(d);
+        startOfWeek.setDate(d.getDate() - d.getDay() + 1); // Lunes
+        const weekLabel = startOfWeek.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+        const weekKey = startOfWeek.toISOString().split('T')[0];
+
+        if (!porSemana[weekKey]) porSemana[weekKey] = { semana: weekLabel, weekKey, total: 0, gmc: 0, educa: 0 };
+        porSemana[weekKey].total += 1;
+        porSemana[weekKey][l.empresa] = (porSemana[weekKey][l.empresa] || 0) + 1;
+
+        // Origen x semana
+        if (!origenSemana[weekKey]) origenSemana[weekKey] = { semana: weekLabel, weekKey };
+        origenSemana[weekKey][l.origen] = (origenSemana[weekKey][l.origen] || 0) + 1;
+      }
     });
+
+    // Datos para gráfica de servicio
+    const porServicioData = Object.entries(porServicio).map(([key, value]) => {
+      const [empresa, servicio] = key.split('_');
+      return { name: `${servicio} (${empresa === 'gmc' ? 'GMC' : 'EDU'})`, value, empresa };
+    }).sort((a, b) => b.value - a.value);
+
+    // Ordenar semanas cronológicamente
+    const semanasOrdenadas = Object.values(porSemana).sort((a, b) => a.weekKey.localeCompare(b.weekKey));
+    const origenSemanaOrdenado = Object.values(origenSemana).sort((a, b) => a.weekKey.localeCompare(b.weekKey));
+
+    // Obtener todos los orígenes únicos para la gráfica apilada
+    const origenesUnicos = [...new Set(leads.map(l => l.origen).filter(Boolean))];
 
     return {
       total: leads.length,
       porOrigen: Object.entries(porOrigen).map(([name, value]) => ({ name, value })),
       porEmpresa,
-      porServicio
+      porServicio,
+      porServicioData,
+      semanasOrdenadas,
+      origenSemanaOrdenado,
+      origenesUnicos
     };
   }, [leads]);
 
@@ -406,6 +444,52 @@ export default function App() {
     } catch (error) {
       notify('❌ Error');
     }
+  };
+
+  const handleImportLeads = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    setSaving(true);
+    try {
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data);
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws);
+      
+      const empresaMap = { 'gmc360': 'gmc', 'gmc': 'gmc', 'educa': 'educa', '360educa': 'educa' };
+      let imported = 0;
+      
+      for (const row of rows) {
+        const fecha = row['FECHA'] || row['Fecha'] || row['fecha'] || '';
+        const origen = row['ORIGEN'] || row['Origen'] || row['origen'] || '';
+        const empresaRaw = (row['EMPRESA'] || row['Empresa'] || row['empresa'] || '').toString().toLowerCase().trim();
+        const empresa = empresaMap[empresaRaw] || empresaRaw;
+        const servicio = row['SERVICIO'] || row['Servicio'] || row['servicio'] || '';
+        const notas = row['NOTAS'] || row['Notas'] || row['notas'] || '';
+        
+        if (!fecha || !origen || !empresa || !servicio) continue;
+        
+        // Formatear fecha si viene como número de Excel
+        let fechaStr = fecha;
+        if (typeof fecha === 'number') {
+          const d = new Date((fecha - 25569) * 86400 * 1000);
+          fechaStr = d.toISOString().split('T')[0];
+        }
+        
+        const leadData = { fecha: fechaStr, origen, empresa, servicio, notas: notas || '' };
+        const newLead = await addLead(leadData);
+        setLeads(prev => [newLead, ...prev]);
+        imported++;
+      }
+      
+      notify(`✅ ${imported} leads importados`);
+    } catch (error) {
+      console.error('Error importando:', error);
+      notify('❌ Error al importar');
+    }
+    setSaving(false);
+    e.target.value = '';
   };
 
   if (loading) {
@@ -524,37 +608,6 @@ export default function App() {
                   </ResponsiveContainer>
                 </Card>
 
-                {/* Gráfica de Impresiones */}
-                <Card>
-                  <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                    <Eye size={20} className="text-[#F97316]" />
-                    Impresiones por Red
-                  </h3>
-                  <div className="flex flex-wrap gap-4 mb-4">
-                    {EMPRESAS.map(e => (
-                      <div key={e.key} className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded" style={{ backgroundColor: e.color }}></div>
-                        <span className="text-sm font-medium">{e.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={REDES.map(red => ({
-                      red: red.label,
-                      EDUCA: latest?.[`educa_${red.key}_imp`] || 0,
-                      GMC360: latest?.[`gmc_${red.key}_imp`] || 0,
-                    }))}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="red" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => value.toLocaleString()} />
-                      <Legend />
-                      <Bar dataKey="EDUCA" fill="#F97316" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="GMC360" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </Card>
-
                 {/* Gráfica de Leads por Origen */}
                 <Card>
                   <div className="flex justify-between items-center mb-4">
@@ -611,19 +664,6 @@ export default function App() {
           <div className="space-y-6">
             <Card>
               <div className="flex flex-wrap gap-2 mb-4">
-                <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
-                  {METRICAS.map(m => (
-                    <button
-                      key={m.key}
-                      onClick={() => setSelectedMetrica(m.key)}
-                      className={`px-3 py-1.5 rounded text-sm font-medium transition-all flex items-center gap-1 ${
-                        selectedMetrica === m.key ? 'bg-white shadow text-[#8B5CF6]' : 'text-gray-600'
-                      }`}
-                    >
-                      <m.icon size={14} /> {m.label}
-                    </button>
-                  ))}
-                </div>
                 <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
                   {EMPRESAS.map(e => (
                     <button
@@ -800,13 +840,85 @@ export default function App() {
               </Card>
             </div>
 
+            {/* Gráfica: Leads por Semana */}
+            {leadStats.semanasOrdenadas.length > 1 && (
+              <Card>
+                <h3 className="font-semibold mb-4">📈 Leads por Semana</h3>
+                <ResponsiveContainer width="100%" height={280}>
+                  <LineChart data={leadStats.semanasOrdenadas}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="semana" tick={{ fontSize: 11 }} />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="total" stroke="#8B5CF6" strokeWidth={2} name="Total" dot={{ r: 4 }} />
+                    <Line type="monotone" dataKey="gmc" stroke="#8B5CF6" strokeWidth={1.5} strokeDasharray="5 5" name="GMC360" dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="educa" stroke="#F97316" strokeWidth={1.5} strokeDasharray="5 5" name="EDUCA" dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Card>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Gráfica: Leads por Servicio */}
+              {leadStats.porServicioData.length > 0 && (
+                <Card>
+                  <h3 className="font-semibold mb-4">🎯 Leads por Servicio</h3>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={leadStats.porServicioData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" allowDecimals={false} />
+                      <YAxis dataKey="name" type="category" width={130} tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Bar dataKey="value" name="Leads" radius={[0, 4, 4, 0]}>
+                        {leadStats.porServicioData.map((entry, i) => (
+                          <Cell key={i} fill={entry.empresa === 'gmc' ? '#8B5CF6' : '#F97316'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Card>
+              )}
+
+              {/* Gráfica: Origen x Semana (apilada) */}
+              {leadStats.origenSemanaOrdenado.length > 1 && (
+                <Card>
+                  <h3 className="font-semibold mb-4">🔀 Origen por Semana</h3>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={leadStats.origenSemanaOrdenado}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="semana" tick={{ fontSize: 11 }} />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Legend />
+                      {leadStats.origenesUnicos.map((origen, i) => (
+                        <Bar key={origen} dataKey={origen} stackId="a" fill={COLORES_PIE[i % COLORES_PIE.length]} name={origen} />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Card>
+              )}
+            </div>
+
             {/* Tabla de leads */}
             <Card>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Listado de Leads</h3>
-                <Button variant="secondary" onClick={() => exportLeads(leads)}>
-                  <Download size={16} /> Excel
-                </Button>
+                <div className="flex gap-2">
+                  <label className="px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 bg-gray-100 text-gray-700 hover:bg-gray-200 cursor-pointer">
+                    <Upload size={16} /> Importar
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={handleImportLeads}
+                      className="hidden"
+                      disabled={saving}
+                    />
+                  </label>
+                  <Button variant="secondary" onClick={() => exportLeads(leads)}>
+                    <Download size={16} /> Excel
+                  </Button>
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
