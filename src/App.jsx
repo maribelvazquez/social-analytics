@@ -577,36 +577,66 @@ export default function App() {
               </Card>
             ) : (
               <>
-                {/* Gráfica de Seguidores */}
-                <Card>
-                  <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                    <Users size={20} className="text-[#8B5CF6]" />
-                    Seguidores por Red
-                  </h3>
-                  <div className="flex flex-wrap gap-4 mb-4">
-                    {EMPRESAS.map(e => (
-                      <div key={e.key} className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded" style={{ backgroundColor: e.color }}></div>
-                        <span className="text-sm font-medium">{e.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={REDES.map(red => ({
-                      red: red.label,
-                      EDUCA: latest?.[`educa_${red.key}_seg`] || 0,
-                      GMC360: latest?.[`gmc_${red.key}_seg`] || 0,
-                    }))}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="red" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => value.toLocaleString()} />
-                      <Legend />
-                      <Bar dataKey="EDUCA" fill="#F97316" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="GMC360" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </Card>
+                {/* Gráficas de Seguidores - Separadas */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card>
+                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                      <Users size={20} className="text-[#F97316]" />
+                      Seguidores EDUCA
+                    </h3>
+                    <ResponsiveContainer width="100%" height={280}>
+                      <BarChart data={REDES.map(red => ({
+                        red: red.label,
+                        Seguidores: latest?.[`educa_${red.key}_seg`] || 0,
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="red" tick={{ fontSize: 12 }} />
+                        <YAxis />
+                        <Tooltip formatter={(value) => value.toLocaleString()} />
+                        <Bar dataKey="Seguidores" fill="#F97316" radius={[4, 4, 0, 0]}>
+                          {REDES.map((red, i) => (
+                            <Cell key={i} fill={red.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="mt-2 text-center">
+                      <span className="text-sm text-gray-500">Total: </span>
+                      <span className="font-bold text-[#F97316]">
+                        {REDES.reduce((sum, red) => sum + (latest?.[`educa_${red.key}_seg`] || 0), 0).toLocaleString()}
+                      </span>
+                    </div>
+                  </Card>
+
+                  <Card>
+                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                      <Users size={20} className="text-[#8B5CF6]" />
+                      Seguidores GMC360
+                    </h3>
+                    <ResponsiveContainer width="100%" height={280}>
+                      <BarChart data={REDES.map(red => ({
+                        red: red.label,
+                        Seguidores: latest?.[`gmc_${red.key}_seg`] || 0,
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="red" tick={{ fontSize: 12 }} />
+                        <YAxis />
+                        <Tooltip formatter={(value) => value.toLocaleString()} />
+                        <Bar dataKey="Seguidores" fill="#8B5CF6" radius={[4, 4, 0, 0]}>
+                          {REDES.map((red, i) => (
+                            <Cell key={i} fill={red.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="mt-2 text-center">
+                      <span className="text-sm text-gray-500">Total: </span>
+                      <span className="font-bold text-[#8B5CF6]">
+                        {REDES.reduce((sum, red) => sum + (latest?.[`gmc_${red.key}_seg`] || 0), 0).toLocaleString()}
+                      </span>
+                    </div>
+                  </Card>
+                </div>
 
                 {/* Gráfica de Leads por Origen */}
                 <Card>
