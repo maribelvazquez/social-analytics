@@ -8,6 +8,7 @@ import { getMetricas, addMetrica, updateMetrica, deleteMetrica, getLeads, addLea
 const EMPRESAS = [
   { key: 'educa', label: 'EDUCA', color: '#F97316' },
   { key: 'gmc', label: 'GMC360', color: '#8B5CF6' },
+  { key: 'maribel', label: 'Maribel', color: '#10B981' },
 ];
 
 const REDES = [
@@ -27,6 +28,9 @@ const SERVICIOS = {
   gmc: ['Auditoría', 'Servicios AV', 'Riesgos', 'Procesos', 'Otros'],
   educa: ['CNBV', 'UIF', 'Risk', 'Anuales', 'Otros'],
 };
+
+// Solo EDUCA y GMC360 manejan leads
+const EMPRESAS_LEADS = EMPRESAS.filter(e => e.key !== 'maribel');
 
 const COLORES_PIE = ['#8B5CF6', '#F97316', '#10B981', '#EC4899', '#3B82F6', '#F59E0B', '#6B7280'];
 
@@ -218,7 +222,7 @@ const LeadModal = ({ isOpen, onClose, onSave, loading }) => {
               className="w-full border rounded-lg px-3 py-2"
             >
               <option value="">Selecciona...</option>
-              {EMPRESAS.map(e => <option key={e.key} value={e.key}>{e.label}</option>)}
+              {EMPRESAS_LEADS.map(e => <option key={e.key} value={e.key}>{e.label}</option>)}
             </select>
           </div>
           {form.empresa && (
@@ -280,7 +284,7 @@ const exportMetricas = (data) => {
 const exportLeads = (data) => {
   const wb = XLSX.utils.book_new();
   const headers = ['FECHA', 'ORIGEN', 'EMPRESA', 'SERVICIO', 'NOTAS'];
-  const rows = data.map(l => [l.fecha, l.origen, l.empresa === 'gmc' ? 'GMC360' : 'EDUCA', l.servicio, l.notas || '']);
+  const rows = data.map(l => [l.fecha, l.origen, EMPRESAS.find(e => e.key === l.empresa)?.label || l.empresa, l.servicio, l.notas || '']);
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
   XLSX.utils.book_append_sheet(wb, ws, 'Leads');
   XLSX.writeFile(wb, `Leads_${new Date().toISOString().split('T')[0]}.xlsx`);
@@ -368,7 +372,7 @@ export default function App() {
     // Datos para gráfica de servicio
     const porServicioData = Object.entries(porServicio).map(([key, value]) => {
       const [empresa, servicio] = key.split('_');
-      return { name: `${servicio} (${empresa === 'gmc' ? 'GMC' : 'EDU'})`, value, empresa };
+      return { name: `${servicio} (${EMPRESAS.find(e => e.key === empresa)?.label?.substring(0, 3) || empresa})`, value, empresa };
     }).sort((a, b) => b.value - a.value);
 
     // Ordenar semanas cronológicamente
@@ -525,7 +529,7 @@ export default function App() {
             </div>
             <div>
               <h1 className="font-bold text-gray-800">Social Analytics</h1>
-              <p className="text-xs text-gray-500">EDUCA + GMC360</p>
+              <p className="text-xs text-gray-500">EDUCA + GMC360 + Maribel</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -578,64 +582,37 @@ export default function App() {
             ) : (
               <>
                 {/* Gráficas de Seguidores - Separadas */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Card>
-                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                      <Users size={20} className="text-[#F97316]" />
-                      Seguidores EDUCA
-                    </h3>
-                    <ResponsiveContainer width="100%" height={280}>
-                      <BarChart data={REDES.map(red => ({
-                        red: red.label,
-                        Seguidores: latest?.[`educa_${red.key}_seg`] || 0,
-                      }))}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="red" tick={{ fontSize: 12 }} />
-                        <YAxis />
-                        <Tooltip formatter={(value) => value.toLocaleString()} />
-                        <Bar dataKey="Seguidores" fill="#F97316" radius={[4, 4, 0, 0]}>
-                          {REDES.map((red, i) => (
-                            <Cell key={i} fill={red.color} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                    <div className="mt-2 text-center">
-                      <span className="text-sm text-gray-500">Total: </span>
-                      <span className="font-bold text-[#F97316]">
-                        {REDES.reduce((sum, red) => sum + (latest?.[`educa_${red.key}_seg`] || 0), 0).toLocaleString()}
-                      </span>
-                    </div>
-                  </Card>
-
-                  <Card>
-                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                      <Users size={20} className="text-[#8B5CF6]" />
-                      Seguidores GMC360
-                    </h3>
-                    <ResponsiveContainer width="100%" height={280}>
-                      <BarChart data={REDES.map(red => ({
-                        red: red.label,
-                        Seguidores: latest?.[`gmc_${red.key}_seg`] || 0,
-                      }))}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="red" tick={{ fontSize: 12 }} />
-                        <YAxis />
-                        <Tooltip formatter={(value) => value.toLocaleString()} />
-                        <Bar dataKey="Seguidores" fill="#8B5CF6" radius={[4, 4, 0, 0]}>
-                          {REDES.map((red, i) => (
-                            <Cell key={i} fill={red.color} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                    <div className="mt-2 text-center">
-                      <span className="text-sm text-gray-500">Total: </span>
-                      <span className="font-bold text-[#8B5CF6]">
-                        {REDES.reduce((sum, red) => sum + (latest?.[`gmc_${red.key}_seg`] || 0), 0).toLocaleString()}
-                      </span>
-                    </div>
-                  </Card>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {EMPRESAS.map(empresa => (
+                    <Card key={empresa.key}>
+                      <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                        <Users size={20} style={{ color: empresa.color }} />
+                        Seguidores {empresa.label}
+                      </h3>
+                      <ResponsiveContainer width="100%" height={250}>
+                        <BarChart data={REDES.map(red => ({
+                          red: red.label,
+                          Seguidores: latest?.[`${empresa.key}_${red.key}_seg`] || 0,
+                        }))}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="red" tick={{ fontSize: 11 }} />
+                          <YAxis />
+                          <Tooltip formatter={(value) => value.toLocaleString()} />
+                          <Bar dataKey="Seguidores" radius={[4, 4, 0, 0]}>
+                            {REDES.map((red, i) => (
+                              <Cell key={i} fill={red.color} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                      <div className="mt-2 text-center">
+                        <span className="text-sm text-gray-500">Total: </span>
+                        <span className="font-bold" style={{ color: empresa.color }}>
+                          {REDES.reduce((sum, red) => sum + (latest?.[`${empresa.key}_${red.key}_seg`] || 0), 0).toLocaleString()}
+                        </span>
+                      </div>
+                    </Card>
+                  ))}
                 </div>
 
                 {/* Gráfica de Leads por Origen */}
@@ -674,14 +651,12 @@ export default function App() {
 
                   {/* Mini resumen por empresa */}
                   <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t">
-                    <div className="text-center p-3 bg-purple-50 rounded-lg">
-                      <p className="text-2xl font-bold text-[#8B5CF6]">{leadStats.porEmpresa.gmc}</p>
-                      <p className="text-xs text-gray-600">GMC360</p>
-                    </div>
-                    <div className="text-center p-3 bg-orange-50 rounded-lg">
-                      <p className="text-2xl font-bold text-[#F97316]">{leadStats.porEmpresa.educa}</p>
-                      <p className="text-xs text-gray-600">EDUCA</p>
-                    </div>
+                    {EMPRESAS_LEADS.map(e => (
+                      <div key={e.key} className="text-center p-3 rounded-lg" style={{ backgroundColor: `${e.color}10` }}>
+                        <p className="text-2xl font-bold" style={{ color: e.color }}>{leadStats.porEmpresa[e.key] || 0}</p>
+                        <p className="text-xs text-gray-600">{e.label}</p>
+                      </div>
+                    ))}
                   </div>
                 </Card>
               </>
@@ -844,14 +819,12 @@ export default function App() {
               <Card>
                 <h3 className="font-semibold mb-3">Por Empresa</h3>
                 <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-[#8B5CF6]">GMC360</span>
-                    <span className="font-bold">{leadStats.porEmpresa.gmc}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#F97316]">EDUCA</span>
-                    <span className="font-bold">{leadStats.porEmpresa.educa}</span>
-                  </div>
+                  {EMPRESAS_LEADS.map(e => (
+                    <div key={e.key} className="flex justify-between">
+                      <span style={{ color: e.color }}>{e.label}</span>
+                      <span className="font-bold">{leadStats.porEmpresa[e.key] || 0}</span>
+                    </div>
+                  ))}
                 </div>
               </Card>
 
@@ -893,9 +866,10 @@ export default function App() {
                     <YAxis allowDecimals={false} />
                     <Tooltip />
                     <Legend />
-                    <Line type="monotone" dataKey="total" stroke="#8B5CF6" strokeWidth={2} name="Total" dot={{ r: 4 }} />
-                    <Line type="monotone" dataKey="gmc" stroke="#8B5CF6" strokeWidth={1.5} strokeDasharray="5 5" name="GMC360" dot={{ r: 3 }} />
-                    <Line type="monotone" dataKey="educa" stroke="#F97316" strokeWidth={1.5} strokeDasharray="5 5" name="EDUCA" dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="total" stroke="#6B7280" strokeWidth={2} name="Total" dot={{ r: 4 }} />
+                    {EMPRESAS_LEADS.map(e => (
+                      <Line key={e.key} type="monotone" dataKey={e.key} stroke={e.color} strokeWidth={1.5} strokeDasharray="5 5" name={e.label} dot={{ r: 3 }} />
+                    ))}
                   </LineChart>
                 </ResponsiveContainer>
               </Card>
@@ -914,7 +888,7 @@ export default function App() {
                       <Tooltip />
                       <Bar dataKey="value" name="Leads" radius={[0, 4, 4, 0]}>
                         {leadStats.porServicioData.map((entry, i) => (
-                          <Cell key={i} fill={entry.empresa === 'gmc' ? '#8B5CF6' : '#F97316'} />
+                          <Cell key={i} fill={EMPRESAS.find(e => e.key === entry.empresa)?.color || '#6B7280'} />
                         ))}
                       </Bar>
                     </BarChart>
@@ -968,8 +942,8 @@ export default function App() {
                         <td className="py-2 px-2">{lead.fecha}</td>
                         <td className="py-2 px-2">{lead.origen}</td>
                         <td className="py-2 px-2">
-                          <span className={`px-2 py-0.5 rounded text-xs ${lead.empresa === 'gmc' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>
-                            {lead.empresa === 'gmc' ? 'GMC360' : 'EDUCA'}
+                          <span className="px-2 py-0.5 rounded text-xs text-white" style={{ backgroundColor: EMPRESAS.find(e => e.key === lead.empresa)?.color || '#6B7280' }}>
+                            {EMPRESAS.find(e => e.key === lead.empresa)?.label || lead.empresa}
                           </span>
                         </td>
                         <td className="py-2 px-2">{lead.servicio}</td>
@@ -1019,7 +993,7 @@ export default function App() {
             <span className="font-semibold">Social Analytics</span>
             <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Firebase</span>
           </div>
-          <p className="text-xs text-gray-400">© 2026 - EDUCA + GMC360</p>
+          <p className="text-xs text-gray-400">© 2026 - EDUCA + GMC360 + Maribel</p>
         </div>
       </footer>
     </div>
